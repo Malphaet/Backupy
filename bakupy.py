@@ -20,8 +20,11 @@ for m in months:
 def dprint(text):
     pass
 
-def makeFolders(args):
+def makeFolders(p):
+    "Making all the subfolders corresponding to all months in a year"
     dprint("Making sub folders")
+
+    args=p.args
     if len(args)==0:
         raise IndexError("Path argument not found")
     path=args[0]
@@ -29,24 +32,34 @@ def makeFolders(args):
         p=os.path.join(path,d)
         os.mkdir(p)
 
-def maketest(args):
+def maketest(p):
+    "Making a bunch of test files in a destination folder"
     dprint("Making test files")
+
+    args=p.args
+    size=4
     try:
         os.mkdir("test")
     except:
         pass
-    for i in range(12):
-        r=subprocess.call(["touch","-m",'--date=2020-{:02d}-{:02d} 23:05:43.443117094 +0400'.format(i+1,i+2), "test/file{0:02d}.txt".format(i)])
+    for j in range(size):
+        for i in range(12):
+            r=subprocess.call(["touch","-m",'--date=20{:02d}-{:02d}-{:02d} 23:05:43.443117094 +0400'.format(j,i+1,i+1), "test/file{0:02d}.txt".format(i+12*j)])
     dprint("Test file made")
 
-def makeBackup(args):
+def makeBackup(p):
+    "Backup a folder toward a following destination"
     dprint("Starting backup process...")
+
+    if not p.noupdate:
+        updateFolder(p.args[0])
+    args=p.args
     if len(args)<2:
         raise IndexError("Path argument not found")
     listbackup=[]
-    root=args[0]
-    dest=args[1]
-    if root.startswith(dest):
+    root,dest=args[0],args[1]
+
+    if dest.startswith(root):
         raise IndexError("Destination path can't be part of the backup path")
     l=os.listdir(root)
     if len(l)==0:
@@ -58,32 +71,56 @@ def makeBackup(args):
         nmonth=emonth[month]
         nyear=time.strftime("%Y",time.gmtime(t))
         listbackup+=[makecommand(f,dest,nmonth,nyear)]
-        # print(f,month,nmonth,nyear)
-    # p_print(listbackup
     dprint("Executing subcommands")
     for l in listbackup:
-        dprint("   "+' '.join(l))
+        dprint("  > "+' '.join(l))
         subprocess.call(l)
+    # for year in yearupdate:
+    #     updateFolder(os.path.join(p.args[1],year))
 
+def updateFolders(p):
+    "Update a list of directories with the modification date inside"
+    dprint("Updating folders")
 
-def updateFolders(args):
+    args=p.args
+    if p.recursive: #Do a bottom first update
+        pass
     if len(args)==0:
         raise IndexError("Path argument not found")
-    dest=args[0]
-    dprint("Updating folder {}".format(dest))
-    l=os.listdir(dest)
-    for fold in l:
-        foldp=os.path.join(dest,fold)
-        if os.path.isdir(foldp):
-            for file in os.listdir(foldp):
-                filep=os.path.join(foldp,file)
-                if not os.path.isdir(filep):
-                    t=time.strftime("%D %H:%M:%S +0000",time.gmtime(os.path.getmtime(filep)))
-                    dprint("Updating {} with date {}".format(foldp,t))
-                    subprocess.call(["touch","-m","--date="+t, foldp])
-                    break
+    for path in args:
+        for root, dirs, files in os.walk(path, topdown=p.recursive):
+            for dir in dirs:
+                updateFolder(os.path.join(root,dir))
+
+def updateFolder(dest):
+    "Update one folder with the modified date in one of the files"
+    # dprint("Updating folder {}".format(dest))
+    for root, dirs, files in os.walk(dest,topdown=True):
+        if len(files)==0:
+            towalk=dirs
+        else:
+            towalk=files
+
+        for f in towalk:
+            filep=os.path.join(root,f)
+            t=time.strftime("%D %H:%M:%S",time.gmtime(os.path.getmtime(filep)))
+            dprint("  > Updating {} with date {}".format(dest,t))
+            return subprocess.call(["touch","-m","--date="+t, dest])
+
+    # l=os.listdir(dest)
+    # for fold in l:
+    #     foldp=os.path.join(dest,fold)
+    #     if os.path.isdir(foldp):
+    #         for file in os.listdir(foldp):
+    #             filep=os.path.join(foldp,file)
+    #             # if not os.path.isdir(filep):
+    #             t=time.strftime("%D %H:%M:%S +0000",time.gmtime(os.path.getmtime(filep)))
+    #             dprint("  > Updating {} with date {}".format(foldp,t))
+    #             subprocess.call(["touch","-m","--date="+t, foldp])
+    #             break
 
 def finddest(dest,name):
+    "Find a non existing Destination name, will append a ' N' before the extention. Very uglyly made."
     id=2
     try:
         name,ext=name.split(".",1)
@@ -99,16 +136,21 @@ def finddest(dest,name):
     return dname
 
 def makecommand(file,dest,nmonth,nyear):
+    "Make a move command, don't actually execute it. Return a list for subprocess."
     fy=os.path.join(dest,nyear)
     destmonth=os.path.join(fy,monthname(nmonth,months[nmonth]))
     if not os.path.exists(fy):
-        dprint("Destination year doesn't exists...making directory ({})".format(fy))
+        dprint(" > Destination year doesn't exists...making directory ({})".format(fy))
         os.mkdir(fy)
     if not os.path.exists(destmonth):
-        dprint("Dest month doesn't exists...making directory ({})".format(destmonth))
+        dprint("  > Dest month doesn't exists...making directory ({})".format(destmonth))
         os.mkdir(destmonth)
+        # print(["touch","-m","--date=01/{:02d}/{}".format(nmonth+1,nyear), destmonth])
+        # print(file,dest,nmonth,nyear)
+    yearupdate.add(nyear)
     pathdest=finddest(destmonth,os.path.basename(file))
     return ["mv","-n",file,pathdest]
+
 
 commands={"make":makeFolders,"backup":makeBackup,"test":maketest,"update":updateFolders}
 
@@ -117,27 +159,29 @@ parser.add_argument('command',help='Command from list',choices=list(commands.key
 parser.add_argument('args',nargs='*',help='Arguments')
 parser.add_argument('--verbose',action="store_true",default=True)
 parser.add_argument("--quiet",action="store_false",dest="verbose")
+parser.add_argument("--recursive",action="store_true",default=False)
 parser.add_argument("--noupdate",action="store_true",default=False)
 parser.add_argument("--dry",action="store_true",default=False)
 # parser.add_argument("--months",default([1,2,3,4,5,6,7,8,9,10,11,12]))
 parser.add_argument("--year",default=2019,type=int)
 
+yearupdate=set()
 if __name__ == '__main__':
     p=parser.parse_args()
-    # print(p.command)
-    # print(commands[p.command](p.args))
+    errors=0
     if p.verbose:
         def dprint(text):
             print(text)
     try:
-        if not p.noupdate:
-            updateFolders(p.args)
-        commands[p.command](p.args)
+        commands[p.command](p)
+
     except FileNotFoundError as e:
+        errors+=1
         print(e)
     except IndexError as e:
+        errors+=1
         print(e)
-    # except IOError as e:
-    #     print(e)
-
-    dprint("Program exited sucessfully")
+    if errors:
+        dprint("Program exited with errors")
+    else:
+        dprint("Program exited sucessfully")
