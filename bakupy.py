@@ -107,17 +107,38 @@ def updateFolder(dest):
             dprint("  > Updating {} with date {}".format(dest,t))
             return subprocess.call(["touch","-m","--date="+t, dest])
 
-    # l=os.listdir(dest)
-    # for fold in l:
-    #     foldp=os.path.join(dest,fold)
-    #     if os.path.isdir(foldp):
-    #         for file in os.listdir(foldp):
-    #             filep=os.path.join(foldp,file)
-    #             # if not os.path.isdir(filep):
-    #             t=time.strftime("%D %H:%M:%S +0000",time.gmtime(os.path.getmtime(filep)))
-    #             dprint("  > Updating {} with date {}".format(foldp,t))
-    #             subprocess.call(["touch","-m","--date="+t, foldp])
-    #             break
+def initFiles(p):
+    "Assume all files are in the right folders, and the folders are rightfully named"
+    if len(p.args)==0:
+        raise IndexError("Path argument not found")
+    for arg in p.args:
+        initFile(arg,p)
+
+def initFile(dest,p):
+    years=os.listdir(dest)
+    itime=p.time
+    for year in years:
+        #Check sanity of year
+        try:
+            iyear=int(year)
+        except ValueError: # Recuse on all folders ?
+            raise IndexError("You are trying to update a folder not properly formatted")
+
+        if iyear > 3000 or iyear < 1800:
+            raise IOError("Year found is likely incorrect")
+        months=os.listdir(os.path.join(dest,year))
+        for month in months:
+            imonth=int(month.split(" ")[0])
+            if imonth<1 or imonth>12:
+                raise IOError("Month not in valid range")
+            path=os.path.join(dest,year,month)
+            for root, dirs, files in os.walk(path, topdown=p.recursive):
+                for f in dirs+files:
+                    date="{:02d}/{:02d}/20 {}".format(iyear,imonth,itime)
+                    des=os.path.join(dest,root,f)
+                    dprint("  > Updating {} with date {}".format(f,date))
+                    subprocess.call(["touch","-m","--date="+date, des])
+    updateFolders(p) # It is "cleaner" even if less effective
 
 def finddest(dest,name):
     "Find a non existing Destination name, will append a ' N' before the extention. Very uglyly made."
@@ -152,7 +173,7 @@ def makecommand(file,dest,nmonth,nyear):
     return ["mv","-n",file,pathdest]
 
 
-commands={"make":makeFolders,"backup":makeBackup,"test":maketest,"update":updateFolders}
+commands={"make":makeFolders,"backup":makeBackup,"test":maketest,"update":updateFolders,"init":initFiles}
 
 parser = argparse.ArgumentParser(description='Make backup folders.')
 parser.add_argument('command',help='Command from list',choices=list(commands.keys()))
@@ -162,6 +183,8 @@ parser.add_argument("--quiet",action="store_false",dest="verbose")
 parser.add_argument("--recursive",action="store_true",default=False)
 parser.add_argument("--noupdate",action="store_true",default=False)
 parser.add_argument("--dry",action="store_true",default=False)
+parser.add_argument("--time",default="10:10:10")
+
 # parser.add_argument("--months",default([1,2,3,4,5,6,7,8,9,10,11,12]))
 parser.add_argument("--year",default=2019,type=int)
 
