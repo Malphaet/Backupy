@@ -4,8 +4,7 @@ import argparse
 import sys,os,time
 import subprocess
 import uuid
-# import pprint
-# p_print=pprint.PrettyPrinter(indent=4).pprint
+# import pathlib # getting rid of half of os calls in favor a something way more friendly
 
 def monthname(nb,month):
     return '{:02d} {}'.format(nb+1,month)
@@ -59,7 +58,7 @@ def makeBackup(p):
     args=p.args
     if len(args)<2:
         raise IndexError("Path argument not found")
-    listbackup=[]
+    listbackup,listcancel=[],[]
     root,dest=args[0],args[1]
 
     if dest.startswith(root):
@@ -73,13 +72,17 @@ def makeBackup(p):
         month=time.strftime("%b",time.gmtime(t))
         nmonth=emonth[month]
         nyear=time.strftime("%Y",time.gmtime(t))
-        listbackup+=[makecommand(f,dest,nmonth,nyear)]
+        move,cancel=makeMovecommand(f,dest,nmonth,nyear)
+        listcancel+=[cancel]
+        listbackup+=[move]
     dprint("Executing subcommands")
     for l in listbackup:
-        #dprint("  > "+' '.join(l))
+        cancelf = time.strftime("cancel-%d%b%y-%H%M%S.sh",time.gmtime(time.time()))
         doSubprocess(l,p.dry)
-    # for year in yearupdate:
-    #     updateFolder(os.path.join(p.args[1],year))
+        if not p.nobackup:
+            with open(cancelf,"w+") as file:
+                for line in listcancel:
+                    file.write(' '.join(line)+"\n")
 
 def updateFolders(p):
     "Update a list of directories with the modification date inside"
@@ -159,7 +162,7 @@ def finddest(dest,name):
             id+=1
     return dname
 
-def makecommand(file,dest,nmonth,nyear):
+def makeMovecommand(file,dest,nmonth,nyear):
     "Make a move command, don't actually execute it. Return a list for subprocess."
     fy=os.path.join(dest,nyear)
     destmonth=os.path.join(fy,monthname(nmonth,months[nmonth]))
@@ -171,7 +174,8 @@ def makecommand(file,dest,nmonth,nyear):
         doMakedir(destmonth,p.dry)
     yearupdate.add(nyear)
     pathdest=finddest(destmonth,os.path.basename(file))
-    return ["mv","-n",file,pathdest]
+
+    return ["mv","-n",file,pathdest],["mv","-n",pathdest.replace(' ','\ '),file.replace(" ",'\ ')]
 
 def doSubprocess(listargs,dry=False):
     "Call a subprocess if not dry, and print it if verbose"
@@ -201,6 +205,7 @@ parser.add_argument('--verbose',action="store_true",default=True)
 parser.add_argument("--quiet",action="store_false",dest="verbose")
 parser.add_argument("--recursive",action="store_true",default=False)
 parser.add_argument("--noupdate",action="store_true",default=False)
+parser.add_argument("--nobackup",action="store_true",default=False)
 parser.add_argument("--dry",action="store_true",default=False)
 parser.add_argument("--time",default="10:10:10")
 
