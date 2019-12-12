@@ -28,9 +28,12 @@ def makeFolders(p):
     if len(args)==0:
         raise IndexError("Path argument not found")
     path=args[0]
+    if not os.path.exists(path):
+        raise FileNotFoundError("  The folder '{}' doesn't exist".format(path))
     for d in imonths:
-        p=os.path.join(path,d)
-        os.mkdir(p)
+        dir=os.path.join(path,d)
+        if not os.path.exists(dir):
+            doMakedir(dir,p.dry)
 
 def maketest(p):
     "Making a bunch of test files in a destination folder"
@@ -39,7 +42,7 @@ def maketest(p):
     args=p.args
     size=4
     try:
-        os.mkdir("test")
+        doMakedir("test",p.dry)
     except:
         pass
     for j in range(size):
@@ -52,7 +55,7 @@ def makeBackup(p):
     dprint("Starting backup process...")
 
     if not p.noupdate:
-        updateFolder(p.args[0])
+        updateFolder(p.args[0],p.dry)
     args=p.args
     if len(args)<2:
         raise IndexError("Path argument not found")
@@ -73,7 +76,7 @@ def makeBackup(p):
         listbackup+=[makecommand(f,dest,nmonth,nyear)]
     dprint("Executing subcommands")
     for l in listbackup:
-        dprint("  > "+' '.join(l))
+        #dprint("  > "+' '.join(l))
         doSubprocess(l,p.dry)
     # for year in yearupdate:
     #     updateFolder(os.path.join(p.args[1],year))
@@ -104,7 +107,7 @@ def updateFolder(dest,dry):
         for f in towalk:
             filep=os.path.join(root,f)
             t=time.strftime("%D %H:%M:%S",time.gmtime(os.path.getmtime(filep)))
-            dprint("  > Updating {} with date {}".format(dest,t))
+            dprint(" > Updating {} with date {}".format(dest,t))
             return doSubprocess(["touch","-m","--date="+t, dest],dry)
 
 def initFiles(p):
@@ -162,12 +165,10 @@ def makecommand(file,dest,nmonth,nyear):
     destmonth=os.path.join(fy,monthname(nmonth,months[nmonth]))
     if not os.path.exists(fy):
         dprint(" > Destination year doesn't exists...making directory ({})".format(fy))
-        os.mkdir(fy)
+        doMakedir(fy,p.dry)
     if not os.path.exists(destmonth):
         dprint("  > Dest month doesn't exists...making directory ({})".format(destmonth))
-        os.mkdir(destmonth)
-        # print(["touch","-m","--date=01/{:02d}/{}".format(nmonth+1,nyear), destmonth])
-        # print(file,dest,nmonth,nyear)
+        doMakedir(destmonth,p.dry)
     yearupdate.add(nyear)
     pathdest=finddest(destmonth,os.path.basename(file))
     return ["mv","-n",file,pathdest]
@@ -176,10 +177,20 @@ def doSubprocess(listargs,dry=False):
     "Call a subprocess if not dry, and print it if verbose"
     if not dry:
         r=subprocess.call(listargs)
-        dprint(listargs.join(" "))
+        dprint(" $ "+" ".join(listargs))
     else:
-        dprint("dry: listargs.join(" "))
+        r=0
+        dprint(" # "+" ".join(listargs))
     return r
+
+def doMakedir(dir,dry):
+    "Make a directory if not dry"
+    if not dry:
+        r=os.mkdir(dir)
+        dprint("  Making directory '{}'".format(dir))
+    else:
+        r=0
+        dprint(" # Making directory '{}'".format(dir))
 
 commands={"make":makeFolders,"backup":makeBackup,"test":maketest,"update":updateFolders,"init":initFiles}
 
