@@ -58,7 +58,7 @@ def maketest(p):
         pass
     for j in range(size):
         for i in range(12):
-            r=doSubprocess(["touch","-m",dateformat.format(year=j,month=i,day=i+1,hour=0,minute=0,second=0), "test/file{0:02d}.txt".format(i+12*j)],p.dry)
+            r=doSubprocess(["touch","-m",dateformat.format(year=j,month=i+1,day=i+1,hour=0,minute=0,second=0), "test/file{0:02d}.txt".format(i+12*j)],p.dry)
     dprint("Test file made")
 
 def makeBackup(p):
@@ -84,7 +84,7 @@ def makeBackup(p):
         month=time.strftime("%b",time.gmtime(t))
         nmonth=emonth[month]
         nyear=time.strftime("%Y",time.gmtime(t))
-        move,cancel=makeMovecommand(f,dest,nmonth,nyear)
+        move,cancel=makeMovecommand(f,dest,nmonth-1,nyear)
         listcancel+=[cancel]
         listbackup+=[move]
     dprint("Executing subcommands")
@@ -152,7 +152,7 @@ def initFile(dest,p):
             path=os.path.join(dest,year,month)
             for root, dirs, files in os.walk(path, topdown=p.recursive):
                 for f in dirs+files:
-                    date="{:02d}/{:02d}/20 {}".format(iyear,imonth,itime)
+                    # date="{:02d}/{:02d}/20 {}".format(iyear,imonth,itime)
                     des=os.path.join(dest,root,f)
                     dprint("  > Updating {} with date {}".format(f,date))
                     doChangeTime(f,datetime.datetime(year=iyear,month=imonth,time=itime),p.dry)
