@@ -1,9 +1,21 @@
-#!/bin/python3
+#!/usr/bin/env python3
 
 import argparse
 import sys,os,time
 import subprocess
 import uuid
+
+# Platform Detection
+from sys import platform
+if platform == "linux" or platform == "linux2":
+     dateformat='-t{year:02d}{month:02d}{day:02d}{hour:02d}{minute:02d}.{second:02d}'
+#     smalldate="%m%d%H%M.%S"
+#     smallyear=
+elif platform == "darwin":
+    dateformat=""
+# elif platform == "win32":
+#     sys.exit("Not supported for now")
+
 # import pathlib # getting rid of half of os calls in favor a something way more friendly
 
 def monthname(nb,month):
@@ -28,7 +40,7 @@ def makeFolders(p):
         raise IndexError("Path argument not found")
     path=args[0]
     if not os.path.exists(path):
-        raise FileNotFoundError("  The folder '{}' doesn't exist".format(path))
+        raise IOError("  The folder '{}' doesn't exist".format(path))
     for d in imonths:
         dir=os.path.join(path,d)
         if not os.path.exists(dir):
@@ -46,7 +58,7 @@ def maketest(p):
         pass
     for j in range(size):
         for i in range(12):
-            r=doSubprocess(["touch","-m",'--date=20{:02d}-{:02d}-{:02d} 23:05:43.443117094 +0400'.format(j,i+1,i+1), "test/file{0:02d}.txt".format(i+12*j)],p.dry)
+            r=doSubprocess(["touch","-m",dateformat.format(year=j,month=i,day=i+1,hour=0,minute=0,second=0), "test/file{0:02d}.txt".format(i+12*j)],p.dry)
     dprint("Test file made")
 
 def makeBackup(p):
@@ -109,9 +121,9 @@ def updateFolder(dest,dry):
 
         for f in towalk:
             filep=os.path.join(root,f)
-            t=time.strftime("%D %H:%M:%S",time.gmtime(os.path.getmtime(filep)))
-            dprint(" > Updating {} with date {}".format(dest,t))
-            return doSubprocess(["touch","-m","--date="+t, dest],dry)
+            # t=time.strftime("%D %H:%M:%S",time.gmtime(os.path.getmtime(filep)))
+            # dprint(" > Updating {} with date {}".format(dest,t))
+            return doChangeTime(dest,time.gmtime(os.path.getmtime(filep)),dry)
 
 def initFiles(p):
     "Assume all files are in the right folders, and the folders are rightfully named"
@@ -143,7 +155,7 @@ def initFile(dest,p):
                     date="{:02d}/{:02d}/20 {}".format(iyear,imonth,itime)
                     des=os.path.join(dest,root,f)
                     dprint("  > Updating {} with date {}".format(f,date))
-                    doSubprocess(["touch","-m","--date="+date, des],p.dry)
+                    doChangeTime(f,datetime.datetime(year=iyear,month=imonth,time=itime),p.dry)
     updateFolders(p) # It is "cleaner" even if less effective
 
 def finddest(dest,name):
@@ -196,6 +208,17 @@ def doMakedir(dir,dry):
         r=0
         dprint(" # Making directory '{}'".format(dir))
 
+def doChangeTime(file,date,dry):
+    "Change the modification time of a file"
+    modTime = time.mktime(date)
+
+    m="$"
+    if dry:
+        m="#"
+    dprint("  {} Changing time of {} with {}".format(m,file,time.strftime("%d %b %y - %H:%M:%S",date)))
+    if not dry:
+        os.utime(file, (modTime, modTime))
+
 commands={"make":makeFolders,"backup":makeBackup,"test":maketest,"update":updateFolders,"init":initFiles}
 
 parser = argparse.ArgumentParser(description='Make backup folders.')
@@ -214,6 +237,9 @@ parser.add_argument("--year",default=2019,type=int)
 
 yearupdate=set()
 if __name__ == '__main__':
+    if len(sys.argv)<2:
+        print("Interactive mode engaged")
+        sys.exit(" > Interractive mode not implemented")
     p=parser.parse_args()
     errors=0
     if p.verbose:
@@ -222,7 +248,7 @@ if __name__ == '__main__':
     try:
         commands[p.command](p)
 
-    except FileNotFoundError as e:
+    except IOError as e:
         errors+=1
         print(e)
     except IndexError as e:
