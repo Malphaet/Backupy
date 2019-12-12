@@ -44,7 +44,7 @@ def maketest(p):
         pass
     for j in range(size):
         for i in range(12):
-            r=subprocess.call(["touch","-m",'--date=20{:02d}-{:02d}-{:02d} 23:05:43.443117094 +0400'.format(j,i+1,i+1), "test/file{0:02d}.txt".format(i+12*j)])
+            r=doSubprocess(["touch","-m",'--date=20{:02d}-{:02d}-{:02d} 23:05:43.443117094 +0400'.format(j,i+1,i+1), "test/file{0:02d}.txt".format(i+12*j)],p.dry)
     dprint("Test file made")
 
 def makeBackup(p):
@@ -74,7 +74,7 @@ def makeBackup(p):
     dprint("Executing subcommands")
     for l in listbackup:
         dprint("  > "+' '.join(l))
-        subprocess.call(l)
+        doSubprocess(l,p.dry)
     # for year in yearupdate:
     #     updateFolder(os.path.join(p.args[1],year))
 
@@ -90,9 +90,9 @@ def updateFolders(p):
     for path in args:
         for root, dirs, files in os.walk(path, topdown=p.recursive):
             for dir in dirs:
-                updateFolder(os.path.join(root,dir))
+                updateFolder(os.path.join(root,dir),p.dry)
 
-def updateFolder(dest):
+def updateFolder(dest,dry):
     "Update one folder with the modified date in one of the files"
     # dprint("Updating folder {}".format(dest))
     for root, dirs, files in os.walk(dest,topdown=True):
@@ -105,7 +105,7 @@ def updateFolder(dest):
             filep=os.path.join(root,f)
             t=time.strftime("%D %H:%M:%S",time.gmtime(os.path.getmtime(filep)))
             dprint("  > Updating {} with date {}".format(dest,t))
-            return subprocess.call(["touch","-m","--date="+t, dest])
+            return doSubprocess(["touch","-m","--date="+t, dest],dry)
 
 def initFiles(p):
     "Assume all files are in the right folders, and the folders are rightfully named"
@@ -137,7 +137,7 @@ def initFile(dest,p):
                     date="{:02d}/{:02d}/20 {}".format(iyear,imonth,itime)
                     des=os.path.join(dest,root,f)
                     dprint("  > Updating {} with date {}".format(f,date))
-                    subprocess.call(["touch","-m","--date="+date, des])
+                    doSubprocess(["touch","-m","--date="+date, des],p.dry)
     updateFolders(p) # It is "cleaner" even if less effective
 
 def finddest(dest,name):
@@ -172,6 +172,14 @@ def makecommand(file,dest,nmonth,nyear):
     pathdest=finddest(destmonth,os.path.basename(file))
     return ["mv","-n",file,pathdest]
 
+def doSubprocess(listargs,dry=False):
+    "Call a subprocess if not dry, and print it if verbose"
+    if not dry:
+        r=subprocess.call(listargs)
+        dprint(listargs.join(" "))
+    else:
+        dprint("dry: listargs.join(" "))
+    return r
 
 commands={"make":makeFolders,"backup":makeBackup,"test":maketest,"update":updateFolders,"init":initFiles}
 
