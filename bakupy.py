@@ -3,6 +3,7 @@
 import argparse
 import sys,os,time
 import subprocess
+import datetime
 import uuid
 
 # Platform Detection
@@ -50,7 +51,6 @@ def maketest(p):
     "Making a bunch of test files in a destination folder"
     dprint("Making test files")
 
-    args=p.args
     size=4
     try:
         doMakedir("test",p.dry)
@@ -58,7 +58,9 @@ def maketest(p):
         pass
     for j in range(size):
         for i in range(12):
-            r=doSubprocess(["touch","-m",dateformat.format(year=j,month=i+1,day=i+1,hour=0,minute=0,second=0), "test/file{0:02d}.txt".format(i+12*j)],p.dry)
+            dest="test/file{0:02d}.txt".format(i+12*j)
+            r1=doMakeFile(dest,p.dry)
+            r2=doChangeTime(dest,datetime.datetime(year=2000+j,month=i+1,day=i+1,hour=0,minute=0,second=0).timetuple(),p.dry)
     dprint("Test file made")
 
 def makeBackup(p):
@@ -77,7 +79,8 @@ def makeBackup(p):
         raise IndexError("Destination path can't be part of the backup path")
     l=os.listdir(root)
     if len(l)==0:
-        raise IndexError("Directory is empty")
+        raise IndexError("Directory '{}' is empty".format(root))
+
     for f in l:
         f=os.path.join(root,f)
         t=os.path.getmtime(f)
@@ -121,8 +124,6 @@ def updateFolder(dest,dry):
 
         for f in towalk:
             filep=os.path.join(root,f)
-            # t=time.strftime("%D %H:%M:%S",time.gmtime(os.path.getmtime(filep)))
-            # dprint(" > Updating {} with date {}".format(dest,t))
             return doChangeTime(dest,time.gmtime(os.path.getmtime(filep)),dry)
 
 def initFiles(p):
@@ -201,23 +202,31 @@ def doSubprocess(listargs,dry=False):
 
 def doMakedir(dir,dry):
     "Make a directory if not dry"
+    dprint(" {} Making directory '{}'".format(dryme(dry),dir))
+
+    r=0
     if not dry:
         r=os.mkdir(dir)
-        dprint("  Making directory '{}'".format(dir))
-    else:
-        r=0
-        dprint(" # Making directory '{}'".format(dir))
 
 def doChangeTime(file,date,dry):
     "Change the modification time of a file"
-    modTime = time.mktime(date)
+    dprint("  {} Changing time of {} with {}".format(dryme(dry),file,time.strftime("%d %b %y - %H:%M:%S",date)))
 
-    m="$"
-    if dry:
-        m="#"
-    dprint("  {} Changing time of {} with {}".format(m,file,time.strftime("%d %b %y - %H:%M:%S",date)))
+    modTime = time.mktime(date)
+    # print(type(date),type(modTime))
     if not dry:
         os.utime(file, (modTime, modTime))
+
+def doMakeFile(dest,dry):
+    dprint("  {} Making file {}".format(dryme(dry),dest))
+    with open(dest,"w+") as f:
+        pass
+    return 0
+
+def dryme(dry):
+    if dry:
+        return '#'
+    return '$'
 
 commands={"make":makeFolders,"backup":makeBackup,"test":maketest,"update":updateFolders,"init":initFiles}
 
@@ -239,21 +248,40 @@ yearupdate=set()
 if __name__ == '__main__':
     if len(sys.argv)<2:
         print("Interactive mode engaged")
-        sys.exit(" > Interractive mode not implemented")
-    p=parser.parse_args()
+        def getmefolder(message):
+            while 1:
+                try:
+                    dest=input(message)
+                    if dest[0]=="'":
+                        dest=dest[1:dest.rfind("'")]
+                    if not os.path.exists(dest):
+                        print("{} is not a correct path".format(dest))
+                    else:
+                        return dest
+                except EOFError:
+                    sys.exit("...exiting")
+                except KeyboardInterrupt:
+                    sys.exit("...exiting")
+                except IndexError:
+                    print("Invalid path")
+        origin=getmefolder(" > Type ORIGIN for folders and files : ")
+        dest=getmefolder(" > Type DESTINATION for backing them up : ")
+        p=parser.parse_args(["backup",origin,dest])
+    else:
+        p=parser.parse_args()
+
     errors=0
     if p.verbose:
         def dprint(text):
             print(text)
     try:
         commands[p.command](p)
-
     except IOError as e:
         errors+=1
-        print(e)
+        print("ERROR: {}".format(e))
     except IndexError as e:
         errors+=1
-        print(e)
+        print("ERROR: {}".format(e))
     if errors:
         dprint("Program exited with errors")
     else:
