@@ -98,6 +98,8 @@ def makeBackup(p):
             with open(cancelf,"w+") as file:
                 for line in listcancel:
                     file.write(' '.join(line)+"\n")
+            st=os.stat(cancelf)
+            os.chmod(cancelf,st.st_mode | 0o111)
 
 def updateFolders(p):
     "Update a list of directories with the modification date inside"
