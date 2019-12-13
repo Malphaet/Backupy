@@ -7,6 +7,8 @@ import datetime
 import uuid
 
 # Platform Detection
+# Add a rsync option
+# rsync -vtr -@3600 --times --progress /media/beffroi/Backup\ Elements/Backup/ /media/beffroi/HDD\ STOCKAGE/
 from sys import platform
 if platform == "linux" or platform == "linux2":
      dateformat='-t{year:02d}{month:02d}{day:02d}{hour:02d}{minute:02d}.{second:02d}'
@@ -254,8 +256,11 @@ if __name__ == '__main__':
             while 1:
                 try:
                     dest=input(message)
-                    if dest[0]=="'":
-                        dest=dest[1:dest.rfind("'")]
+                    if dest=="q":
+                        sys.exit("...quitting")
+                    rf=dest.find("'")
+                    if rf>0:
+                        dest=dest[rf:dest.rfind("'")]
                     if not os.path.exists(dest):
                         print("{} is not a correct path".format(dest))
                     else:
@@ -266,9 +271,10 @@ if __name__ == '__main__':
                     sys.exit("...exiting")
                 except IndexError:
                     print("Invalid path")
-        origin=getmefolder(" > Type ORIGIN for folders and files : ")
-        dest=getmefolder(" > Type DESTINATION for backing them up : ")
-        p=parser.parse_args(["backup",origin,dest])
+        while 1:
+            origin=getmefolder(" > Type ORIGIN for folders and files : ")
+            dest=getmefolder(" > Type DESTINATION for backing them up : ")
+            p=parser.parse_args(["backup",origin,dest])
     else:
         p=parser.parse_args()
 
