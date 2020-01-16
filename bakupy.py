@@ -75,7 +75,7 @@ def makeBackup(p):
     if len(args)<2:
         raise IndexError("Path argument not found")
     listbackup,listcancel=[],[]
-    root,dest=args[0],args[1]
+    root,dest=args[0].strip(" '"),args[1].strip(" '")
 
     if dest.startswith(root):
         raise IndexError("Destination path can't be part of the backup path")
@@ -89,7 +89,7 @@ def makeBackup(p):
         month=time.strftime("%b",time.gmtime(t))
         nmonth=emonth[month]
         nyear=time.strftime("%Y",time.gmtime(t))
-        move,cancel=makeMovecommand(f,dest,nmonth-1,nyear)
+        move,cancel=makeMovecommand(f,dest,nmonth,nyear)
         listcancel+=[cancel]
         listbackup+=[move]
     dprint("Executing subcommands")
@@ -182,7 +182,9 @@ def finddest(dest,name):
 def makeMovecommand(file,dest,nmonth,nyear):
     "Make a move command, don't actually execute it. Return a list for subprocess."
     fy=os.path.join(dest,nyear)
+
     destmonth=os.path.join(fy,monthname(nmonth,months[nmonth]))
+
     if not os.path.exists(fy):
         dprint(" > Destination year doesn't exists...making directory ({})".format(fy))
         doMakedir(fy,p.dry)
