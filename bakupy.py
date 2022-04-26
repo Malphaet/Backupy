@@ -81,8 +81,9 @@ def makeBackup(p):
         raise IndexError("Destination path can't be part of the backup path")
     l=os.listdir(root)
     if len(l)==0:
-        raise IndexError("Directory '{}' is empty".format(root))
-
+        dprint("SKIPPING: Directory '{}' is empty".format(root))
+        return
+        
     for f in l:
         f=os.path.join(root,f)
         t=os.path.getmtime(f)
@@ -94,7 +95,7 @@ def makeBackup(p):
         listbackup+=[move]
     dprint("Executing subcommands")
     for l in listbackup:
-        cancelf = time.strftime("cancel-%d%b%y-%H%M%S.sh",time.gmtime(time.time()))
+        cancelf = os.path.join(p.cancel,time.strftime("cancel-%d%b%y-%H%M%S.sh",time.gmtime(time.time())))
         doSubprocess(l,p.dry)
         if not p.nobackup:
             with open(cancelf,"w+") as file:
@@ -246,6 +247,7 @@ parser.add_argument("--noupdate",action="store_true",default=False)
 parser.add_argument("--nobackup",action="store_true",default=False)
 parser.add_argument("--dry",action="store_true",default=False)
 parser.add_argument("--time",default="10:10:10")
+parser.add_argument("--cancel", default=".")
 
 # parser.add_argument("--months",default([1,2,3,4,5,6,7,8,9,10,11,12]))
 parser.add_argument("--year",default=2019,type=int)
